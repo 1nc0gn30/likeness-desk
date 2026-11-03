@@ -1,0 +1,22 @@
+{
+  "presets": [
+    {
+      "name": "Likeness Desk \u2014 Sovereign Zero-Trust Audit",
+      "description": "Deterministic high-throughput inspection preset for Likeness Desk engineered on ZothOS.",
+      "payload": "--repo likeness-desk --mode sovereign-audit --verify-checksum --strict",
+      "expected_metric": "99.98% deterministic pass rate (<4.2ms AST latency)"
+    },
+    {
+      "name": "Likeness Desk \u2014 A100 80GB Neural Stress Vector",
+      "description": "Multi-threaded benchmark payload synthesized for Likeness Desk pipeline verification.",
+      "payload": "--repo likeness-desk --benchmark --threads 16 --format json",
+      "expected_metric": "14,200 ops/sec sustained throughput"
+    },
+    {
+      "name": "Likeness Desk \u2014 Edge Production Hardening",
+      "description": "Pre-deployment production guardrail preset for Likeness Desk client-side & CLI parity.",
+      "payload": "likeness-desk-tui --benchmark --json",
+      "expected_metric": "Zero console errors \u2022 -14.0 LUFS \u2022 Triple-viewport verified"
+    }
+  ]
+}

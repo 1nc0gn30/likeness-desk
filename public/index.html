@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Likeness desk</title>
+  <link rel="stylesheet" href="/style.css">
+
+  <!-- Zoth 100% Open-Access & Buy Us a Coffee Invariant -->
+  <script id="zoth-open-access-init">
+    (function() {
+      try {
+        var keys = ['agent_audiocipher_pro', 'agent_cyber_turtle_pro', 'agent_datamosh_pro', 'agent_nexus3d_pro', 'agent_policy_pro', 'audiocipher_license', 'audiocipher_pro_licensed', 'badge3d_pro_licensed', 'certpath_pro_key', 'certpath_pro_licensed', 'cron_rhythm_pro_key', 'cron_rhythm_pro_licensed', 'cwv-speed-engine_pro_licensed', 'cwv_pro_licensed', 'cyber_turtle_pro_licensed', 'datamosh_pro_licensed', 'deepsearch-research-agent_pro_licensed', 'deepsearch_pro_licensed', 'entropy_studio_licensed', 'envguard-secrets-vault_pro_licensed', 'envguard_pro_license', 'etsy_connector_pro', 'jwt_guard_licensed', 'mdg_pro_licensed', 'neuro_pro_licensed', 'nexus3d_pro_licensed', 'omnipost_pro_key', 'omnipost_pro_licensed', 'osint_pro_licensed', 'payload-entropy-studio_pro_licensed', 'polyglot_pro_licensed', 'pro_licensed', 'promptmaster_pro_licensed', 'promptmaster_pro_active', 'robots-txt-auditor_pro_licensed', 'robots_pro_licensed', 'schema_illustrator_pro_licensed', 'sovereign_pro_licensed', 'subsweep-lead-scanner_pro_licensed', 'subsweep_licensed', 'turtle_pro_licensed', 'ufo_sacred_licensed', 'vector-search-engine_pro_licensed', 'vector_studio_pro_licensed', 'web-security-guard_pro_licensed', 'web_security_guard_licensed', 'yourdigitalspace_pro', 'zela_guide_pro_licensed', 'zoth_ascii_magic_pro', 'zoth_audiocipher_licensed', 'zoth_badge3d_licensed', 'zoth_cyber_turtle_licensed', 'zoth_datamosh_licensed', 'zoth_etsy_licensed', 'zoth_nexus3d_licensed', 'zoth_osint_licensed', 'zoth_policy_licensed', 'zoth_sacred_licensed', 'zoth_ufo_licensed'];
+        for (var i = 0; i < keys.length; i++) {
+          localStorage.setItem(keys[i], 'true');
+        }
+        localStorage.setItem('pm_license_v2', JSON.stringify({ method: 'open_access', ref: 'free_forever', at: '2026-01-01T00:00:00Z' }));
+        window.isPro = true;
+        window.isProLicensed = true;
+      } catch (e) {}
+    })();
+  </script>
+  <style id="zoth-open-access-override">
+    .paywall-overlay, .output-paywall-overlay, #outputPaywallOverlay, #schemaPaywallOverlay,
+    #transformerPaywallOverlay, #proPaywallModal, #licenseModal, #salesBanner, #founding-offer-banner,
+    #funnelHeroBanner, [data-alias="paywallOverlay"], [data-alias="founding-offer-banner"] {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    .paywall-wrap #outputPreview, .paywall-wrap #reportContentArea, .paywall-content,
+    .paywall-content.locked, .paywall-wrap.is-locked #outputPreview, .paywall-wrap.locked #outputPreview {
+      filter: none !important;
+      -webkit-filter: none !important;
+      user-select: auto !important;
+      pointer-events: auto !important;
+    }
+  </style>
+
+</head>
+<body>
+
+<div id="zoth-coffee-support-bar" style="background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(212,175,55,0.14)); border-bottom: 1px solid rgba(212,175,55,0.35); padding: 8px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; z-index: 9999;">
+  <span style="color: #10B981; font-weight: 800;">✦ 100% FREE &amp; OPEN ACCESS · ZERO PAYWALLS</span>
+  <a href="https://buy.stripe.com/3cIfZg27PdKo2D64Ocfw40X" target="_blank" rel="noopener noreferrer" style="background: #D4AF37; color: #08080B; padding: 4px 12px; border-radius: 6px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">☕ Buy Us a Coffee (Stripe)</a>
+  <a href="solana:GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK" onclick="if(navigator.clipboard){navigator.clipboard.writeText('GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK');this.textContent='✓ Copied GG2eQb...dXoK!';}" style="background: rgba(20,241,149,0.15); color: #14F195; border: 1px solid rgba(20,241,149,0.45); padding: 4px 12px; border-radius: 6px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">◎ Solana Tip (GG2e...dXoK)</a>
+</div>
+
+  <header class="top">
+    <div>
+      <p class="eyebrow">Local double</p>
+      <h1>Likeness desk</h1>
+    </div>
+    <p id="statusLine" class="status">Starting the voice model.</p>
+  </header>
+
+  <main class="layout">
+    <section class="stage-card" aria-label="Video call">
+      <div class="stage" id="stage">
+        <video id="idleVideo" playsinline muted loop hidden></video>
+        <video id="cam" playsinline muted autoplay hidden></video>
+        <canvas id="stageCanvas" width="480" height="640"></canvas>
+        <video id="faceVideo" playsinline hidden></video>
+        <p id="stageHint" class="stage-hint">Your photo will sit here.</p>
+      </div>
+      <ol id="transcript" class="transcript"></ol>
+      <form id="talkForm" class="talk">
+        <label class="sr" for="talkInput">Line</label>
+        <textarea id="talkInput" rows="2" maxlength="400" placeholder="Type a line, or answer someone"></textarea>
+        <div class="row">
+          <button type="button" id="hearBtn" class="primary" hidden>Hear the paragraph</button>
+          <button type="button" id="micBtn">Listen</button>
+          <button type="submit" id="talkBtn">Talk</button>
+          <button type="button" id="answerBtn">Answer</button>
+        </div>
+        <p class="meta">Stop plays the recording at once. Listen and Talk speak new words in the copy. The voice is made on the CPU, then the mouth is drawn on the Quadro.</p>
+      </form>
+    </section>
+
+    <section class="train">
+      <article class="card">
+        <h2>Voice</h2>
+        <p>Read this aloud, at your normal pace. The copy uses the first fifteen seconds, so begin in a quiet room. The speech engine marks each line with a quiet watermark. The recording stays on this machine.</p>
+        <blockquote id="script">This is my voice, in my own room. I speak the way I normally speak. A short line, then a longer one, so the copy can hear my pace. I am making a small double of myself, and this clip is the only voice it should learn.</blockquote>
+        <div class="row">
+          <button type="button" id="recordVoice">Record voice</button>
+          <button type="button" id="learnVoice" disabled>Learn this take</button>
+        </div>
+        <p id="voiceMeta" class="meta">No take yet.</p>
+      </article>
+
+      <article class="card">
+        <h2>Face</h2>
+        <p>Record yourself talking, with your hands and your body, for fifteen seconds. Each new line plays that real movement and paints the mouth to match the words. This card cannot invent new gestures for a sentence. The voice still runs on the CPU. The Quadro paints the mouth. A short line is quick once the voice is ready. A long line can take about half a minute.</p>
+        <div class="row">
+          <button type="button" id="openCam">Open camera</button>
+          <button type="button" id="takePhoto" disabled>Take photo</button>
+          <button type="button" id="recordIdle" disabled>Record yourself moving</button>
+        </div>
+        <p id="faceMeta" class="meta">No photo yet.</p>
+        <p class="meta">After the photo appears, drag a box around the mouth. Then record yourself talking and moving.</p>
+      </article>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+  <script src="/assets/sovereign-upgrade.js" defer></script>
+</body>
+</html>
