@@ -103,6 +103,22 @@
     </section>
   </main>
   <script src="/app.js"></script>
-  <script src="/assets/sovereign-upgrade.js" defer></script>
+  
+
+  <script src="/sovereign_tutorial.js"></script>
+  <script>
+    window.addEventListener("DOMContentLoaded", function() {
+      if (window.createSovereignTutorial) {
+        window.createSovereignTutorial({
+          toolId: "likeness-desk",
+          toolName: "Likeness Desk (AI Video Double)",
+          tagline: "Create photorealistic AI video avatars with expressive facial motion!",
+          accentColor: "#F43F5E",
+          steps: [{"icon": "\ud83d\udc64", "title": "What is a Digital Double?", "desc": "A realistic digital clone of your face that can talk, blink, and present videos for your brand."}, {"icon": "\ud83d\udde3\ufe0f", "title": "Viseme Lip-Sync", "desc": "Syncs mouth movements precisely to your recorded voice or synthesized speech."}, {"icon": "\ud83c\udfac", "title": "Zero-Effort Video Creation", "desc": "Generate professional marketing and tutorial videos simply by typing text."}]
+        });
+      }
+    });
+  </script>
+
 </body>
 </html>
