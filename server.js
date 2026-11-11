@@ -13,8 +13,8 @@ const PORT = Number(process.env.LIKENESS_PORT || 9395);
 const VOICE_PORT = Number(process.env.LIKENESS_VOICE_PORT || 9396);
 const FACE_PORT = Number(process.env.LIKENESS_FACE_PORT || 9397);
 const ROOT = __dirname;
-const PUBLIC = path.join(ROOT, 'public');
-const DATA = path.join(ROOT, 'data');
+const PUBLIC = process.env.LIKENESS_PUBLIC_DIR ? path.resolve(process.env.LIKENESS_PUBLIC_DIR) : path.join(ROOT, 'public');
+const DATA = process.env.LIKENESS_DATA_DIR ? path.resolve(process.env.LIKENESS_DATA_DIR) : path.join(ROOT, 'data');
 const VOICE_WAV = path.join(DATA, 'voice', 'reference.wav');
 const FACE_FILE = path.join(DATA, 'face', 'portrait.jpg');
 const IDLE_FILE = path.join(DATA, 'face', 'idle.webm');
@@ -24,7 +24,7 @@ const PYTHON = path.join(ROOT, '.venv', 'bin', 'python');
 const WORKER = path.join(ROOT, 'engine', 'voice_worker.py');
 const FACE_PYTHON = path.join(ROOT, '.venv-face', 'bin', 'python');
 const FACE_WORKER = path.join(ROOT, 'engine', 'face_worker.py');
-const WAV2LIP = path.join(ROOT, 'models', 'wav2lip_gan.pth');
+const WAV2LIP = process.env.LIKENESS_WAV2LIP_FILE ? path.resolve(process.env.LIKENESS_WAV2LIP_FILE) : path.join(ROOT, 'models', 'wav2lip_gan.pth');
 
 const CHAT_SYSTEM = [
   'You are the person on this video call, speaking as yourself.',
@@ -82,21 +82,36 @@ function publicStatus() {
   };
 }
 
-function send(res, code, body, type) {
+function isLocalOrigin(origin) {
+  if (!origin) return true;
+  try {
+    const u = new URL(origin);
+    return u.hostname === '127.0.0.1' || u.hostname === 'localhost' || u.hostname === '::1';
+  } catch (err) {
+    return false;
+  }
+}
+
+function send(res, code, body, type, reqOrigin) {
   const buf = Buffer.isBuffer(body) ? body : Buffer.from(body);
-  res.writeHead(code, {
+  const headers = {
     'Content-Type': type || 'application/json; charset=utf-8',
     'Content-Length': buf.length,
     'Cache-Control': 'no-store',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Accept'
-  });
+    'X-Content-Type-Options': 'nosniff'
+  };
+  if (reqOrigin && isLocalOrigin(reqOrigin)) {
+    headers['Access-Control-Allow-Origin'] = reqOrigin;
+    headers['Vary'] = 'Origin';
+    headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
+    headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept';
+  }
+  res.writeHead(code, headers);
   res.end(buf);
 }
 
-function sendJson(res, code, obj) {
-  send(res, code, JSON.stringify(obj));
+function sendJson(res, code, obj, reqOrigin) {
+  send(res, code, JSON.stringify(obj), undefined, reqOrigin);
 }
 
 function readBody(req, limit) {
@@ -359,8 +374,13 @@ function contentType(file) {
 
 async function handle(req, res) {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
+  const origin = String(req.headers['origin'] || '');
+  if (origin && !isLocalOrigin(origin)) {
+    sendJson(res, 403, { error: 'Cross-origin access denied.' });
+    return;
+  }
   if (req.method === 'OPTIONS') {
-    send(res, 204, '');
+    send(res, 204, '', undefined, origin);
     return;
   }
   try {
