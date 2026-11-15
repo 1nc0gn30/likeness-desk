@@ -76,8 +76,18 @@ async function checkPreview() {
 }
 
 async function refresh() {
-  const res = await fetch('/api/status');
-  desk = await res.json();
+  let res;
+  try {
+    res = await fetch('/api/status');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    desk = await res.json();
+  } catch (e) {
+    // Desk API offline: report it and keep the page alive instead of
+    // raising an uncaught rejection on load or on the 4s poll.
+    console.warn('likeness-desk API offline:', e.message);
+    if (!speaking && !holdStatus) setStatus('Desk service offline — start the likeness-desk daemon to enable voice.', true);
+    return;
+  }
   await checkPreview();
   if (!speaking && !holdStatus) {
     if (desk.voiceError) setStatus(desk.voiceError, true);
