@@ -84,7 +84,9 @@ python3 -m pytest -v
 
 ## License & Attribution
 
-100% free and open-source software with zero paywalls or telemetry.  
-Optional patronage: [Buy Us a Coffee (Stripe)](https://buy.stripe.com/3cIfZg27PdKo2D64Ocfw40X)
+100% free and open-source software with zero paywalls, login gates, or telemetry.  
+Optional patronage:
+- **Stripe**: [Buy Us a Coffee](https://buy.stripe.com/3cIfZg27PdKo2D64Ocfw40X)
+- **Solana Tip Address**: `GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK` (`solana:GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK`)
 
-Engineered by **1nc0gn30** ([@1nc0gn30](https://github.com/1nc0gn30) • [https://1nc0gn30.si](https://1nc0gn30.si)) • **NullAI** ([https://nullai.tech](https://nullai.tech)).
+Engineered by **Neal Frazier Tech** ([@1nc0gn30](https://github.com/1nc0gn30) • [https://github.com/1nc0gn30/likeness-desk](https://github.com/1nc0gn30/likeness-desk)) • **NullAI Platform** ([https://nullai.tech](https://nullai.tech)).
