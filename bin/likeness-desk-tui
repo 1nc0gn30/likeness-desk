@@ -1,60 +1,98 @@
 #!/usr/bin/env python3
-"""⚡ Likeness Desk — Sovereign Unicode U+2800 Braille TUI & Benchmark Harness
-Engineered by 1nc0gn30 (@1nc0gn30) • NullAI Platform
-Paired Uncommon-Web Library: Canvas UI (canvasui-html-effects)
+"""Likeness Desk v2.6.0 — Real-Status Unicode Braille TUI.
+Engineered by Neal Frazier Tech (@1nc0gn30) • NullAI Platform
 """
-import argparse, json, math, os, sys, time
 
-BRAILLE_BASE = 0x2800
-METRICS = ["AST/Engine Latency (ms)", "Throughput (ops/s)", "Memory Footprint (MB)", "Zero-Trust Audit Status"]
-SUMMARY = "Sovereign Likeness Desk engine with deterministic local execution and real-time telemetry."
-UW_SLUG = "canvasui-html-effects"
-UW_INSTALL = "npx shadcn@latest add https://canvasui.dev/r/liquid-react.json https://canvasui.dev/r/shatter-react.json https://canvasui.dev/r/peel-react.json https://canvasui.dev/r/ripple-react.json https://canvasui.dev/r/cloth-react.json https://canvasui.dev/r/vhs-react.json"
+import argparse
+import json
+import os
+import urllib.request
 
-def braille_sparkline(vals):
-    out = []
-    for i in range(0, len(vals) - 1, 2):
-        v1 = max(0, min(3, int(vals[i] * 3.99)))
-        v2 = max(0, min(3, int(vals[i+1] * 3.99)))
-        dots1 = (0x40, 0x04, 0x02, 0x01)[v1]
-        dots2 = (0x80, 0x20, 0x10, 0x08)[v2]
-        out.append(chr(BRAILLE_BASE | dots1 | dots2))
-    return "".join(out)
+TOOL_VERSION = "2.6.0"
+DEFAULT_PORT = int(os.environ.get("LIKENESS_PORT") or os.environ.get("PORT") or "9395")
+
+
+def fetch_json(url: str, timeout: float = 2.0):
+    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "likeness-desk-tui/2.6.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def query_daemon(port: int):
+    base = f"http://127.0.0.1:{port}"
+    health = None
+    status = None
+    online = False
+    error = ""
+    try:
+        health = fetch_json(f"{base}/health")
+        status = fetch_json(f"{base}/api/status")
+        online = True
+    except Exception as exc:
+        error = str(exc)
+    return {
+        "tool": "likeness-desk",
+        "title": "Likeness Desk (AI Video Double)",
+        "version": TOOL_VERSION,
+        "endpoint": base,
+        "online": online,
+        "error": error,
+        "health": health or {},
+        "status": status or {},
+        "attribution": "Engineered by Neal Frazier Tech (@1nc0gn30) • NullAI Platform",
+    }
+
+
+def bar(fraction: float, width: int = 16) -> str:
+    clamped = max(0.0, min(1.0, fraction))
+    filled = int(round(clamped * width))
+    return "⣿" * filled + "⣀" * (width - filled)
+
 
 def main():
-    ap = argparse.ArgumentParser(description="Likeness Desk Sovereign TUI & Benchmark")
-    ap.add_argument("--json", action="store_true", help="Output JSON telemetry and exit")
-    ap.add_argument("--benchmark", action="store_true", help="Run deterministic latency benchmark")
-    ap.add_argument("--frames", type=int, default=18, help="TUI frames to render")
-    args = ap.parse_args()
+    ap = argparse.ArgumentParser(prog="likeness-desk-tui", description="Likeness Desk real-status Braille TUI")
+    ap.add_argument("--version", action="version", version=f"likeness-desk-tui v{TOOL_VERSION}")
+    ap.add_argument("--port", type=int, default=DEFAULT_PORT, help="Coordinator port (default: 9395)")
+    ap.add_argument("--status", action="store_true", help="Print concise one-line status and exit")
+    ap.add_argument("--json", action="store_true", help="Output real daemon status JSON and exit")
+    args, _unknown = ap.parse_known_args()
 
-    t0 = time.perf_counter()
-    samples = [0.5 + 0.45 * math.sin(i * 0.35) for i in range(48)]
-    elapsed_ms = round((time.perf_counter() - t0) * 1000.0 + 0.42, 3)
+    snap = query_daemon(args.port)
+    st = snap["status"]
 
     if args.json:
-        print(json.dumps({
-            "tool": "likeness-desk",
-            "title": "Likeness Desk",
-            "architect": "1nc0gn30 (@1nc0gn30) • NullAI Platform",
-            "summary": SUMMARY,
-            "uncommon_web": {"slug": UW_SLUG, "install": UW_INSTALL},
-            "audio_lufs": -14.0,
-            "benchmark_ms": elapsed_ms,
-            "metrics": METRICS,
-            "braille_signature": braille_sparkline(samples),
-        }, indent=2))
+        print(json.dumps(snap, indent=2))
         return
 
+    if args.status:
+        state = "ONLINE" if snap["online"] else "OFFLINE"
+        mode = st.get("mode", "offline") if snap["online"] else "offline"
+        print(f"likeness-desk-tui v{TOOL_VERSION} | {snap['endpoint']} | {state} | mode={mode}")
+        return
+
+    online = snap["online"]
+    voice_sec = float(st.get("voiceSeconds", 0) or 0)
+    mouth = st.get("mouth") or {}
+    mouth_str = (
+        f"x={mouth['x']:.2f} y={mouth['y']:.2f} w={mouth['w']:.2f} h={mouth['h']:.2f}"
+        if all(k in mouth for k in ("x", "y", "w", "h"))
+        else "uncalibrated"
+    )
+    gpu_name = st.get("faceGpuName") or ("idle" if online else "offline")
+    mode = st.get("mode", "offline") if online else "offline"
+
     print("\033[1;33m╭──────────────────────────────────────────────────────────────────────────╮\033[0m")
-    print(f"\033[1;33m│\033[0m ⚡ \033[1;37mLikeness Desk                   \033[0m │ \033[36m1nc0gn30 • NullAI Platform\033[0m         \033[1;33m│\033[0m")
+    print(f"\033[1;33m│\033[0m \033[1;37mLIKENESS DESK v{TOOL_VERSION:<6}\033[0m │ \033[36mNeal Frazier Tech (@1nc0gn30) • NullAI\033[0m      \033[1;33m│\033[0m")
     print("\033[1;33m├──────────────────────────────────────────────────────────────────────────┤\033[0m")
-    print(f"\033[1;33m│\033[0m {SUMMARY[:72]:<72} \033[1;33m│\033[0m")
-    print(f"\033[1;33m│\033[0m Uncommon-Web: \033[32m{UW_SLUG:<24}\033[0m Audio: \033[35m-14.0 LUFS Mastered\033[0m   \033[1;33m│\033[0m")
-    for idx, m in enumerate(METRICS[:4]):
-        wave = braille_sparkline([0.5 + 0.45 * math.sin((i + idx * 3) * 0.4) for i in range(40)])
-        print(f"\033[1;33m│\033[0m  • {m[:24]:<24} \033[33m{wave}\033[0m  PASS   \033[1;33m│\033[0m")
+    print(f"\033[1;33m│\033[0m  Daemon   : {snap['endpoint']:<28} State : {('ONLINE' if online else 'OFFLINE'):<18}\033[1;33m│\033[0m")
+    print(f"\033[1;33m│\033[0m  Mode     : {mode:<28} GPU   : {gpu_name[:18]:<18}\033[1;33m│\033[0m")
+    print(f"\033[1;33m│\033[0m  Voice    : {bar(min(1.0, voice_sec / 20.0), 16)}  {voice_sec:>4.1f}s  Trained: {str(bool(st.get('voiceTrained'))):<15}\033[1;33m│\033[0m")
+    print(f"\033[1;33m│\033[0m  Face/ROI : face={str(bool(st.get('face'))):<5} motion={str(bool(st.get('motion'))):<5}  {mouth_str[:29]:<29}\033[1;33m│\033[0m")
+    print(f"\033[1;33m│\033[0m  xAI Chat : {'enabled (XAI_API_KEY set)' if st.get('chat') else 'disabled (local-only mode)':<60}\033[1;33m│\033[0m")
+    if not online:
+        print(f"\033[1;33m│\033[0m  Note     : {'Start daemon: LIKENESS_LAZY_GPU=1 likeness-desk serve':<60}\033[1;33m│\033[0m")
     print("\033[1;33m╰──────────────────────────────────────────────────────────────────────────╯\033[0m")
+
 
 if __name__ == "__main__":
     main()

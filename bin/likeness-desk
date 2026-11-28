@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+"""Likeness Desk v2.6.0 — Portable ZothOS CLI & Launcher."""
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+TOOL_ID = "likeness-desk"
+TOOL_REPO = "likeness-desk"
+TOOL_NAME = "Likeness Desk (AI Video Double)"
+TOOL_DESC = (
+    "Local GPU voice cloning (Chatterbox Turbo :9396) and Wav2Lip mouth lip-sync "
+    "(:9397) coordinated over loopback :9395, with optional xAI chat when XAI_API_KEY is set."
+)
+TOOL_VERSION = "2.6.0"
+TOOL_CATEGORY = "Voice & Real-Time"
+DEFAULT_PORT = int(os.environ.get("LIKENESS_PORT") or os.environ.get("PORT") or "9395")
+STUDIO_URL = f"http://127.0.0.1:3000/tools/{TOOL_ID}"
+MCP_TOOLS = [
+    "likeness_status",
+    "likeness_mouth_roi",
+    "likeness_speak",
+    "likeness_diagnostics",
+]
+
+
+def resolve_repo_dir() -> Path:
+    candidates = []
+    env_dir = os.environ.get("LIKENESS_REPO_DIR")
+    if env_dir:
+        candidates.append(Path(env_dir).expanduser())
+    candidates.extend([
+        Path.home() / "NullAITech" / "likeness-desk",
+        Path("/opt/likeness-desk"),
+        Path(__file__).resolve().parents[1],
+    ])
+    for cand in candidates:
+        if (cand / "server.js").is_file():
+            return cand
+    return candidates[0]
+
+
+def redact_path(path_obj: Path) -> str:
+    raw = str(path_obj)
+    home = str(Path.home())
+    if raw == home:
+        return "~"
+    if raw.startswith(home + os.sep):
+        return "~" + raw[len(home):]
+    return raw
+
+
+def _http_json(url: str, payload=None, timeout: float = 3.0):
+    headers = {"Accept": "application/json", "User-Agent": "likeness-desk-cli/2.6.0"}
+    data = None
+    method = "GET"
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+        method = "POST"
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.status, json.loads(resp.read().decode("utf-8"))
+
+
+def query_endpoint(port: int, route: str):
+    url = f"http://127.0.0.1:{port}{route}"
+    try:
+        code, body = _http_json(url, timeout=2.5)
+        return True, code, body
+    except urllib.error.HTTPError as err:
+        try:
+            detail = json.loads(err.read().decode("utf-8"))
+        except Exception:
+            detail = {"error": f"HTTP {err.code}"}
+        return False, err.code, detail
+    except Exception as err:
+        return False, 0, {"online": False, "error": str(err)}
+
+
+def main():
+    args = sys.argv[1:]
+    repo_dir = resolve_repo_dir()
+
+    if "--electron" in args or (args and args[0] in ("desktop", "electron")):
+        rem = [a for a in args if a not in ("--electron", "desktop", "electron")]
+        elec = shutil.which("electron") or "/usr/local/bin/electron"
+        sys.exit(subprocess.run([elec, str(repo_dir / "electron" / "main.cjs")] + rem, cwd=str(repo_dir)).returncode)
+
+    if "--tui" in args or (args and args[0] == "tui"):
+        rem = [a for a in args if a not in ("--tui", "tui")]
+        tui_bin = shutil.which(f"{TOOL_ID}-tui") or str(repo_dir / "bin" / f"{TOOL_ID}-tui")
+        sys.exit(subprocess.run([tui_bin] + rem).returncode)
+
+    parser = argparse.ArgumentParser(
+        prog=TOOL_ID,
+        description=f"{TOOL_NAME} (v{TOOL_VERSION}) — {TOOL_DESC}",
+    )
+    parser.add_argument("--version", action="version", version=f"{TOOL_ID} v{TOOL_VERSION}")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Loopback coordinator port (default: 9395)")
+    parser.add_argument("--status", action="store_true", help="Check local installation and daemon status")
+    parser.add_argument("--json", action="store_true", help="Output deterministic JSON telemetry")
+    parser.add_argument("--ui", action="store_true", help="Print local workstation URL")
+
+    subparsers = parser.add_subparsers(dest="subcommand", help="Subcommands")
+
+    status_p = subparsers.add_parser("status", help="Print live GPU, voice model, and face pipeline status")
+    status_p.add_argument("--json", action="store_true", help="Print raw JSON status")
+    status_p.add_argument("--port", type=int, default=None, help="Override coordinator port")
+
+    health_p = subparsers.add_parser("health", help="Query coordinator /health liveness endpoint")
+    health_p.add_argument("--json", action="store_true", help="Print raw JSON health")
+    health_p.add_argument("--port", type=int, default=None, help="Override coordinator port")
+
+    speak_p = subparsers.add_parser("speak", help="Send a line to POST /api/speak on the local daemon")
+    speak_p.add_argument("text", type=str, help="Text phrase to speak")
+    speak_p.add_argument("--port", type=int, default=None, help="Override coordinator port")
+
+    serve_p = subparsers.add_parser("serve", help="Run likeness-desk coordinator daemon on loopback")
+    serve_p.add_argument("--port", type=int, default=None, help="Port to bind (default: 9395)")
+    serve_p.add_argument("--host", type=str, default="127.0.0.1", help="Loopback host to bind (default: 127.0.0.1)")
+    serve_p.add_argument("--lazy-gpu", action="store_true", help="Start with LIKENESS_LAZY_GPU=1 (idle GPU/CPU workers)")
+
+    subparsers.add_parser("mcp", help="Run zero-dependency JSON-RPC 2.0 stdio MCP server")
+
+    parsed, _unknown = parser.parse_known_args(args)
+    active_port = getattr(parsed, "port", None) or DEFAULT_PORT
+    local_url = f"http://127.0.0.1:{active_port}"
+
+    if parsed.ui:
+        print(local_url)
+        sys.exit(0)
+
+    if parsed.subcommand == "mcp":
+        mcp_script = repo_dir / "bin" / "likeness-desk-mcp"
+        if not mcp_script.is_file():
+            sys.stderr.write("Error: likeness-desk-mcp not found.\n")
+            sys.exit(1)
+        env = os.environ.copy()
+        env["LIKENESS_PORT"] = str(active_port)
+        os.execvpe("node", ["node", str(mcp_script)], env)
+
+    if parsed.subcommand == "serve":
+        env = os.environ.copy()
+        env["LIKENESS_PORT"] = str(active_port)
+        env["PORT"] = str(active_port)
+        env["LIKENESS_HOST"] = parsed.host
+        if parsed.lazy_gpu:
+            env["LIKENESS_LAZY_GPU"] = "1"
+        cmd = ["node", "server.js", "--port", str(active_port), "--host", parsed.host]
+        print(f"Starting {TOOL_NAME} v{TOOL_VERSION} on http://{parsed.host}:{active_port} ...")
+        proc = subprocess.run(cmd, cwd=str(repo_dir), env=env)
+        sys.exit(proc.returncode)
+
+    if parsed.subcommand == "health":
+        ok, code, body = query_endpoint(active_port, "/health")
+        print(json.dumps(body, indent=2))
+        sys.exit(0 if ok else 1)
+
+    if parsed.subcommand == "speak":
+        try:
+            code, body = _http_json(f"{local_url}/api/speak", payload={"text": parsed.text}, timeout=30.0)
+            print(json.dumps(body, indent=2))
+            sys.exit(0 if 200 <= code < 300 else 1)
+        except urllib.error.HTTPError as err:
+            try:
+                detail = json.loads(err.read().decode("utf-8"))
+            except Exception:
+                detail = {"error": f"HTTP {err.code}"}
+            print(json.dumps({"ok": False, "status": err.code, **detail}, indent=2))
+            sys.exit(1)
+        except Exception as err:
+            print(json.dumps({"ok": False, "error": str(err)}, indent=2))
+            sys.exit(1)
+
+    online, _code, live_status = query_endpoint(active_port, "/api/status")
+
+    if parsed.subcommand == "status":
+        out = {"online": online, "endpoint": local_url, **live_status}
+        print(json.dumps(out, indent=2))
+        sys.exit(0 if online else 1)
+
+    info = {
+        "id": TOOL_ID,
+        "repo": TOOL_REPO,
+        "name": TOOL_NAME,
+        "version": TOOL_VERSION,
+        "category": TOOL_CATEGORY,
+        "installed": (repo_dir / "server.js").is_file(),
+        "repo_path": redact_path(repo_dir),
+        "studio_workbench_url": STUDIO_URL,
+        "local_endpoint": local_url,
+        "daemon_active": online,
+        "mode": live_status.get("mode", "offline") if online else "offline",
+        "hardware": {
+            "gpu": live_status.get("faceGpuName", "") if online else "",
+            "voice_trained": bool(live_status.get("voiceTrained", False)) if online else False,
+            "voice_seconds": live_status.get("voiceSeconds", 0) if online else 0,
+            "face_active": bool(live_status.get("face", False)) if online else False,
+            "chat_enabled": bool(live_status.get("chat", False)) if online else False,
+        },
+        "mcp_tools": MCP_TOOLS,
+        "license": "MIT (100% Free & Open Access, Zero Paywalls)",
+        "support": {
+            "stripe_buy_coffee": "https://buy.stripe.com/3cIfZg27PdKo2D64Ocfw40X",
+            "solana_wallet": "GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK",
+        },
+        "status": "ONLINE" if online else "OFFLINE",
+    }
+
+    if parsed.json:
+        print(json.dumps(info, indent=2))
+        return
+
+    print(f"Likeness Desk (v{TOOL_VERSION}) — [{TOOL_CATEGORY}]")
+    print(f"  Repository : {info['repo_path']}")
+    print(f"  Workbench  : {STUDIO_URL}")
+    print(f"  Local Port : {local_url} ({'ONLINE' if online else 'OFFLINE'})")
+    print(f"  Mode       : {info['mode']}")
+    print(f"  GPU Worker : {info['hardware']['gpu'] or 'idle/unloaded'}")
+    print(f"  Voice Model: trained={info['hardware']['voice_trained']} ({info['hardware']['voice_seconds']}s)")
+    print(f"  MCP Server : likeness-desk mcp ({len(MCP_TOOLS)} stdio tools)")
+    print("  Attribution: Engineered by Neal Frazier Tech (@1nc0gn30) • NullAI Platform (https://nullai.tech)")
+    print("  Support    : https://buy.stripe.com/3cIfZg27PdKo2D64Ocfw40X | Solana: GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK")
+
+
+if __name__ == "__main__":
+    main()

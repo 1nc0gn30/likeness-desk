@@ -1,21 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Likeness Desk — Local AI Video &amp; Voice Double Studio</title>
-  <meta name="description" content="Local-first AI video double and real-time voice/lip-sync workstation. Animate portraits, clone voice profiles locally, and render neural talking-head streams with zero cloud lock-in.">
+  <meta name="description" content="Local-first AI video double and voice/lip-sync workstation. Local GPU voice cloning (Chatterbox Turbo) and mouth lip-sync (Wav2Lip) with optional xAI chat only when XAI_API_KEY is set.">
   <meta property="og:title" content="Likeness Desk — Local AI Video &amp; Voice Double Studio">
-  <meta property="og:description" content="100% open-access local AI video double, mouth-box neural lip-sync, and real-time speech cloning desk by Neal Frazier Tech.">
+  <meta property="og:description" content="100% open-access local AI video double, mouth-box neural lip-sync, and voice cloning workstation by Neal Frazier Tech.">
   <meta property="og:url" content="https://zoth.nullai.tech/tools/likeness-desk">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://nullai.tech/Banner.png">
+  <meta property="og:image" content="https://likeness-desk.nullai.tech/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@1nc0gn30">
   <meta name="twitter:creator" content="@1nc0gn30">
   <meta name="twitter:title" content="Likeness Desk — Local AI Video &amp; Voice Double Studio">
-  <meta name="twitter:description" content="Local-first AI video double and real-time voice/lip-sync studio. Zero cloud egress, 100% unlocked.">
-  <meta name="twitter:image" content="https://nullai.tech/Banner.png">
+  <meta name="twitter:description" content="Local GPU voice cloning and lip-sync workstation with optional xAI chat. 100% free and open access.">
+  <meta name="twitter:image" content="https://likeness-desk.nullai.tech/og-image.png">
+  <link rel="icon" type="image/png" href="/icon.png">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -27,7 +28,7 @@
         "url": "https://zoth.nullai.tech/tools/likeness-desk",
         "applicationCategory": "MultimediaApplication",
         "operatingSystem": "Linux, macOS, Windows, Web Browser",
-        "description": "Local-first AI video double and voice lip-sync workstation supporting portrait alignment, mouth-region mapping, and local neural face rendering.",
+        "description": "Local-first AI video double and voice lip-sync workstation supporting portrait alignment, mouth-region calibration, local Chatterbox Turbo voice cloning, and local Wav2Lip CUDA face rendering, with optional xAI conversational replies when XAI_API_KEY is configured.",
         "offers": {
           "@type": "Offer",
           "price": "0",
@@ -54,15 +55,15 @@
             "name": "What does Likeness Desk do?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Likeness Desk transforms a still portrait, mouth-region box, and voice sample into a synchronized local AI video double via its Node server, CLI, and web desk."
+              "text": "Likeness Desk turns a still portrait, calibrated mouth-region box, and voice sample into a synchronized local AI video double via its Node.js :9395 coordinator, Python CPU/CUDA workers, CLI, TUI, and MCP server."
             }
           },
           {
             "@type": "Question",
-            "name": "Does Likeness Desk send portraits or audio to third-party clouds?",
+            "name": "Does Likeness Desk upload portraits or audio to third-party clouds?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "No. Likeness Desk runs locally on 127.0.0.1:9395 and keeps portrait crops, audio takes, and neural synthesis strictly on your own hardware."
+              "text": "Voice cloning and Wav2Lip rendering run strictly locally on 127.0.0.1:9395 and store recordings in gitignored ./data/. Optional conversational replies (/api/chat) contact api.x.ai only when XAI_API_KEY is explicitly set, and the optional Listen button uses browser SpeechRecognition if clicked."
             }
           },
           {
@@ -70,7 +71,7 @@
             "name": "Is Likeness Desk free to use and how can I support development?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Likeness Desk is 100% free and open access with zero paywalls. Optional voluntary tips are accepted via Buy Us a Coffee (Stripe) or Solana wallet GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK."
+              "text": "Likeness Desk is 100% free and open access under the MIT license with zero paywalls. Optional tips are accepted via Buy Us a Coffee (Stripe) or Solana wallet GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK."
             }
           }
         ]
@@ -81,48 +82,48 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-
-<div id="zoth-coffee-support-bar" style="background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(212,175,55,0.14)); border-bottom: 1px solid rgba(212,175,55,0.35); padding: 8px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; z-index: 9999;">
-  <span style="color: #10B981; font-weight: 800;">✦ 100% FREE &amp; OPEN ACCESS · ZERO PAYWALLS</span>
-  <a href="https://buy.stripe.com/3cIfZg27PdKo2D64Ocfw40X" target="_blank" rel="noopener noreferrer" style="background: #D4AF37; color: #08080B; padding: 4px 12px; border-radius: 6px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">☕ Buy Us a Coffee (Stripe)</a>
-  <a href="solana:GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK" onclick="if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText('GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK').catch(function(){});}this.textContent='✓ Copied GG2eQb...dXoK!';" style="background: rgba(20,241,149,0.15); color: #14F195; border: 1px solid rgba(20,241,149,0.45); padding: 4px 12px; border-radius: 6px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">◎ Solana Tip (GG2e...dXoK)</a>
-</div>
-
   <header class="top">
-    <div>
-      <p class="eyebrow">Local double</p>
-      <h1>Likeness desk</h1>
+    <div class="brand-head">
+      <div class="eyebrow-row">
+        <span class="eyebrow">Local GPU Pipeline · v2.6.0</span>
+        <span class="badge-open">100% Open Access</span>
+      </div>
+      <h1>Likeness Desk</h1>
+      <p class="subtitle">Local GPU Voice &amp; Lip-Sync · Optional xAI Chat (only if <code>XAI_API_KEY</code> is set)</p>
     </div>
-    <p id="statusLine" class="status">Starting the voice model.</p>
+    <div class="top-controls">
+      <p id="statusLine" class="status" role="status" aria-live="polite">Checking local daemon status.</p>
+      <button type="button" id="themeToggle" class="theme-btn" aria-label="Switch color theme">Light Mode</button>
+    </div>
   </header>
 
   <main class="layout">
-    <section class="stage-card" aria-label="Video call">
+    <section class="stage-card" aria-label="Video double stage">
       <div class="stage" id="stage">
         <video id="idleVideo" playsinline muted loop hidden></video>
         <video id="cam" playsinline muted autoplay hidden></video>
-        <canvas id="stageCanvas" width="480" height="640"></canvas>
+        <canvas id="stageCanvas" width="480" height="640" aria-label="Portrait and mouth region canvas"></canvas>
         <video id="faceVideo" playsinline hidden></video>
         <p id="stageHint" class="stage-hint">Your photo will sit here.</p>
       </div>
-      <ol id="transcript" class="transcript"></ol>
+      <ol id="transcript" class="transcript" aria-label="Spoken dialogue transcript"></ol>
       <form id="talkForm" class="talk">
-        <label class="sr" for="talkInput">Line</label>
-        <textarea id="talkInput" rows="2" maxlength="400" placeholder="Type a line, or answer someone"></textarea>
+        <label class="sr" for="talkInput">Line to speak</label>
+        <textarea id="talkInput" rows="2" maxlength="400" placeholder="Type a line to speak locally, or enter a question for optional xAI chat"></textarea>
         <div class="row">
-          <button type="button" id="hearBtn" class="primary" hidden>Hear the paragraph</button>
+          <button type="button" id="hearBtn" class="primary" hidden>Hear preview clip</button>
           <button type="button" id="micBtn">Listen</button>
           <button type="submit" id="talkBtn">Talk</button>
           <button type="button" id="answerBtn">Answer</button>
         </div>
-        <p class="meta">Stop plays the recording at once. Listen and Talk speak new words in the copy. The voice is made on the CPU, then the mouth is drawn on the Quadro.</p>
+        <p class="meta">Talk synthesizes locally via Chatterbox Turbo (CPU) and renders mouth motion on your CUDA GPU (Wav2Lip). Listen uses optional browser speech recognition.</p>
       </form>
     </section>
 
-    <section class="train">
+    <section class="train" aria-label="Voice and face training">
       <article class="card">
-        <h2>Voice</h2>
-        <p>Read this aloud, at your normal pace. The copy uses the first fifteen seconds, so begin in a quiet room. The speech engine marks each line with a quiet watermark. The recording stays on this machine.</p>
+        <h2>Voice Profile</h2>
+        <p>Read this script aloud at your normal pace. The voice worker uses the first 15 seconds (6–40s accepted) in a quiet room. Recordings stay on this machine in gitignored <code>./data/</code>.</p>
         <blockquote id="script">This is my voice, in my own room. I speak the way I normally speak. A short line, then a longer one, so the copy can hear my pace. I am making a small double of myself, and this clip is the only voice it should learn.</blockquote>
         <div class="row">
           <button type="button" id="recordVoice">Record voice</button>
@@ -132,44 +133,29 @@
       </article>
 
       <article class="card">
-        <h2>Face</h2>
-        <p>Record yourself talking, with your hands and your body, for fifteen seconds. Each new line plays that real movement and paints the mouth to match the words. This card cannot invent new gestures for a sentence. The voice still runs on the CPU. The Quadro paints the mouth. A short line is quick once the voice is ready. A long line can take about half a minute.</p>
+        <h2>Face &amp; Mouth ROI</h2>
+        <p>Capture a still portrait or record a 15-second moving clip. Drag a box around the mouth on the canvas to calibrate Wav2Lip bounding coordinates (normalized <code>x+w &le; 1</code>, <code>y+h &le; 1</code>).</p>
         <div class="row">
           <button type="button" id="openCam">Open camera</button>
           <button type="button" id="takePhoto" disabled>Take photo</button>
           <button type="button" id="recordIdle" disabled>Record yourself moving</button>
         </div>
         <p id="faceMeta" class="meta">No photo yet.</p>
-        <p class="meta">After the photo appears, drag a box around the mouth. Then record yourself talking and moving.</p>
+        <p id="roiMeta" class="meta">After the photo appears, drag a box around the mouth. Then record yourself talking and moving.</p>
       </article>
     </section>
   </main>
-  <footer style="margin: 20px auto 28px; max-width: 1180px; padding: 14px 20px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; font-size: 12px; color: #a8a29e; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1.7;">
-    <div><strong style="color: #f5f5f4;">Likeness Desk</strong> — 100% Free &amp; Open-Access Local AI Video &amp; Voice Double Workstation.</div>
-    <div>
-      Engineered by Neal Frazier Tech (<a href="https://github.com/1nc0gn30/likeness-desk" target="_blank" rel="noopener noreferrer" style="color: #D4AF37;">@1nc0gn30</a>) &bull;
-      <a href="https://nullai.tech" target="_blank" rel="noopener noreferrer" style="color: #D4AF37;">NullAI Platform</a> &bull;
-      <a href="https://buy.stripe.com/3cIfZg27PdKo2D64Ocfw40X" target="_blank" rel="noopener noreferrer" style="color: #D4AF37;">☕ Buy Us a Coffee</a> &bull;
-      Solana: <code style="color: #14F195; background: rgba(20,241,149,0.08); padding: 2px 6px; border-radius: 4px; word-break: break-all;">GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK</code>
-    </div>
+
+  <footer class="site-footer" id="siteFooter">
+    <p class="footer-title"><strong>Likeness Desk</strong> — Local GPU Voice &amp; Lip-Sync · Optional xAI Chat (only if <code>XAI_API_KEY</code> is set)</p>
+    <p class="footer-links">
+      <span>Engineered by Neal Frazier Tech (</span><a class="footer-link" href="https://github.com/1nc0gn30/likeness-desk" target="_blank" rel="noopener noreferrer">@1nc0gn30</a><span>) &bull;</span>
+      <a class="footer-link" href="https://nullai.tech" target="_blank" rel="noopener noreferrer">NullAI Platform</a>
+      <a class="footer-link footer-coffee" href="https://buy.stripe.com/3cIfZg27PdKo2D64Ocfw40X" target="_blank" rel="noopener noreferrer">☕ Buy Us a Coffee</a>
+      <button type="button" id="copySolanaBtn" class="footer-solana" data-address="GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK">◎ Solana Tip: GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK</button>
+    </p>
   </footer>
+
   <script src="/app.js"></script>
-  
-
-  <script src="/sovereign_tutorial.js"></script>
-  <script>
-    window.addEventListener("DOMContentLoaded", function() {
-      if (window.createSovereignTutorial) {
-        window.createSovereignTutorial({
-          toolId: "likeness-desk",
-          toolName: "Likeness Desk (AI Video Double)",
-          tagline: "Create photorealistic AI video avatars with expressive facial motion!",
-          accentColor: "#F43F5E",
-          steps: [{"icon": "\ud83d\udc64", "title": "What is a Digital Double?", "desc": "A realistic digital clone of your face that can talk, blink, and present videos for your brand."}, {"icon": "\ud83d\udde3\ufe0f", "title": "Viseme Lip-Sync", "desc": "Syncs mouth movements precisely to your recorded voice or synthesized speech."}, {"icon": "\ud83c\udfac", "title": "Zero-Effort Video Creation", "desc": "Generate professional marketing and tutorial videos simply by typing text."}]
-        });
-      }
-    });
-  </script>
-
 </body>
 </html>

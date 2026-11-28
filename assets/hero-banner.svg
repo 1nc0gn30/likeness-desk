@@ -1,56 +1,63 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320" role="img" aria-label="Likeness Desk — Local AI Video Double Workstation">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#06070B"/>
-      <stop offset="50%" stop-color="#0C101B"/>
-      <stop offset="100%" stop-color="#07080E"/>
+      <stop offset="0%" stop-color="#08080B"/>
+      <stop offset="50%" stop-color="#111014"/>
+      <stop offset="100%" stop-color="#09080A"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#D4AF37"/>
-      <stop offset="100%" stop-color="#38BDF8"/>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5C158"/>
+      <stop offset="100%" stop-color="#B8860B"/>
+    </linearGradient>
+    <linearGradient id="emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#059669"/>
     </linearGradient>
     <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
-      <path d="M 28 0 L 0 0 0 28" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+      <path d="M 28 0 L 0 0 0 28" fill="none" stroke="rgba(212,175,55,0.06)" stroke-width="1"/>
     </pattern>
   </defs>
 
-  <rect width="1200" height="320" rx="18" fill="url(#bg)" stroke="#D4AF37" stroke-opacity="0.5" stroke-width="1.5"/>
+  <rect width="1200" height="320" rx="18" fill="url(#bg)" stroke="#D4AF37" stroke-opacity="0.45" stroke-width="1.5"/>
   <rect width="1200" height="320" rx="18" fill="url(#grid)"/>
 
-  <!-- Emblem -->
-  <g transform="translate(52, 48)">
-    <rect width="78" height="78" rx="18" fill="url(#accent)" opacity="0.92"/>
-    <polygon points="39,14 62,27 62,51 39,64 16,51 16,27" fill="#08080B" stroke="#FFFFFF" stroke-width="2"/>
-    <circle cx="39" cy="39" r="7" fill="#D4AF37"/>
+  <!-- Emblem: Geometric Portrait Frame + Lip-Sync Aperture -->
+  <g transform="translate(52, 46)">
+    <rect width="80" height="80" rx="18" fill="#14120F" stroke="url(#gold)" stroke-width="2"/>
+    <ellipse cx="40" cy="36" rx="18" ry="22" fill="none" stroke="#D4AF37" stroke-width="2.2"/>
+    <circle cx="33" cy="31" r="2.5" fill="#F4EFE6"/>
+    <circle cx="47" cy="31" r="2.5" fill="#F4EFE6"/>
+    <rect x="27" y="42" width="26" height="10" rx="5" fill="rgba(16,185,129,0.22)" stroke="#10B981" stroke-width="1.8"/>
+    <line x1="32" y1="47" x2="48" y2="47" stroke="#10B981" stroke-width="1.8" stroke-linecap="round"/>
   </g>
 
   <!-- Header Copy -->
-  <g transform="translate(152, 62)">
-    <rect x="0" y="-14" width="420" height="22" rx="11" fill="rgba(255,255,255,0.06)" stroke="#D4AF37" stroke-opacity="0.45"/>
-    <text x="12" y="1" fill="#D4AF37" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" letter-spacing="1.1">SOVEREIGN // NULLAI ENGINE // PORT :9395</text>
-    <text x="0" y="34" fill="#FFFFFF" font-family="Syne, Space Grotesk, sans-serif" font-size="30" font-weight="800" letter-spacing="0.4">LIKENESS DESK (AI VIDEO DOUBLE)</text>
-    <text x="0" y="60" fill="#94A3B8" font-family="Inter, sans-serif" font-size="13.5">Local video double on GPU with voice cloning and photorealistic mouth animation.</text>
+  <g transform="translate(154, 58)">
+    <rect x="0" y="-14" width="468" height="22" rx="11" fill="rgba(212,175,55,0.10)" stroke="#D4AF37" stroke-opacity="0.45"/>
+    <text x="12" y="1" fill="#E5C158" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10" font-weight="700" letter-spacing="1.1">LOCAL GPU PIPELINE · LOOPBACK :9395 · OPTIONAL XAI CHAT</text>
+    <text x="0" y="36" fill="#F4EFE6" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="30" font-weight="800" letter-spacing="0.4">LIKENESS DESK (AI VIDEO DOUBLE)</text>
+    <text x="0" y="62" fill="#C3B8A6" font-family="Inter, Segoe UI, sans-serif" font-size="13.5">Local voice cloning (Chatterbox Turbo :9396) and GPU mouth lip-sync (Wav2Lip :9397) on your own hardware.</text>
   </g>
 
-  <!-- 3 Feature Cards -->
-  <g transform="translate(52, 168)">
-    <rect x="0" y="0" width="352" height="98" rx="12" fill="#101320" stroke="#D4AF37" stroke-opacity="0.38"/>
-    <text x="18" y="30" fill="#D4AF37" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700">PILLAR 01 // CAPABILITY</text>
-    <text x="18" y="56" fill="#FFFFFF" font-family="Space Grotesk, sans-serif" font-size="14" font-weight="700">Zero-Egress Client Enclave</text>
-    <text x="18" y="78" fill="#64748B" font-family="JetBrains Mono, monospace" font-size="10.5">Verified Client &amp; Enclave Runtime</text>
+  <!-- 3 Architecture Pillars -->
+  <g transform="translate(52, 166)">
+    <rect x="0" y="0" width="352" height="98" rx="12" fill="#141210" stroke="#D4AF37" stroke-opacity="0.38"/>
+    <text x="18" y="28" fill="#E5C158" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10" font-weight="700">PILLAR 01 // VOICE &amp; FACE</text>
+    <text x="18" y="54" fill="#F4EFE6" font-family="Space Grotesk, sans-serif" font-size="14.5" font-weight="700">Local GPU Pipeline</text>
+    <text x="18" y="76" fill="#A8A29E" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">Chatterbox 24kHz CPU + Wav2Lip CUDA</text>
 
-    <rect x="372" y="0" width="352" height="98" rx="12" fill="#101320" stroke="#38BDF8" stroke-opacity="0.38"/>
-    <text x="390" y="30" fill="#38BDF8" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700">PILLAR 02 // ARCHITECTURE</text>
-    <text x="390" y="56" fill="#FFFFFF" font-family="Space Grotesk, sans-serif" font-size="14" font-weight="700">Real-Time Telemetry &amp; AST</text>
-    <text x="390" y="78" fill="#64748B" font-family="JetBrains Mono, monospace" font-size="10.5">Mode: LOCAL_CLI • Port :9395</text>
+    <rect x="372" y="0" width="352" height="98" rx="12" fill="#141210" stroke="#10B981" stroke-opacity="0.38"/>
+    <text x="390" y="28" fill="#34D399" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10" font-weight="700">PILLAR 02 // PRIVACY MODEL</text>
+    <text x="390" y="54" fill="#F4EFE6" font-family="Space Grotesk, sans-serif" font-size="14.5" font-weight="700">Local Media · Optional xAI Chat</text>
+    <text x="390" y="76" fill="#A8A29E" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">Gitignored ./data/ · XAI_API_KEY opt-in</text>
 
-    <rect x="744" y="0" width="352" height="98" rx="12" fill="#101320" stroke="#D4AF37" stroke-opacity="0.38"/>
-    <text x="762" y="30" fill="#D4AF37" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700">PILLAR 03 // ECOSYSTEM</text>
-    <text x="762" y="56" fill="#FFFFFF" font-family="Space Grotesk, sans-serif" font-size="14" font-weight="700">Zoth Studio &amp; ZothOS Native</text>
-    <text x="762" y="78" fill="#64748B" font-family="JetBrains Mono, monospace" font-size="10.5">Zoth Studio v2 (:3000) &amp; ZothOS v3.3</text>
+    <rect x="744" y="0" width="352" height="98" rx="12" fill="#141210" stroke="#D4AF37" stroke-opacity="0.38"/>
+    <text x="762" y="28" fill="#E5C158" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10" font-weight="700">PILLAR 03 // ECOSYSTEM</text>
+    <text x="762" y="54" fill="#F4EFE6" font-family="Space Grotesk, sans-serif" font-size="14.5" font-weight="700">CLI, TUI, MCP &amp; Zoth Studio v2</text>
+    <text x="762" y="76" fill="#A8A29E" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">ZothOS v3.4 · Port :9395 · v2.6.0</text>
   </g>
 
-  <text x="600" y="298" text-anchor="middle" fill="#64748B" font-family="JetBrains Mono, monospace" font-size="10.5">
-    ENGINEERED BY 1NC0GN30 • NULLAI (@1nc0gn30)  •  NULLAI PLATFORM  •  ZOTH.NULLAI.TECH
+  <text x="600" y="298" text-anchor="middle" fill="#A8A29E" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">
+    Engineered by Neal Frazier Tech (@1nc0gn30) • NullAI Platform • https://nullai.tech
   </text>
 </svg>

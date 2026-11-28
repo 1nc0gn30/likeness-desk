@@ -1,0 +1,286 @@
+#!/usr/bin/env node
+/**
+ * Likeness Desk v2.6.0 — Zero-Dependency JSON-RPC 2.0 Stdio MCP Server.
+ * Exposes 4 local tools: likeness_status, likeness_mouth_roi, likeness_speak, likeness_diagnostics.
+ */
+
+const http = require('http');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const VERSION = '2.6.0';
+const PROTOCOL_VERSION = '2024-11-05';
+const PORT = Number(process.env.LIKENESS_PORT || process.env.PORT || 9395);
+const ROOT = path.resolve(__dirname, '..');
+const DATA_DIR = process.env.LIKENESS_DATA_DIR ? path.resolve(process.env.LIKENESS_DATA_DIR) : path.join(ROOT, 'data');
+const WAV2LIP = process.env.LIKENESS_WAV2LIP_FILE ? path.resolve(process.env.LIKENESS_WAV2LIP_FILE) : path.join(ROOT, 'models', 'wav2lip_gan.pth');
+
+function redactHome(p) {
+  const home = os.homedir();
+  if (p === home) return '~';
+  if (p.startsWith(home + path.sep)) return '~' + p.slice(home.length);
+  return p;
+}
+
+const TOOLS = [
+  {
+    name: 'likeness_status',
+    description: 'Query live Likeness Desk (:9395) voice model, portrait, motion clip, mouth ROI, GPU status, and optional chat state.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        port: { type: 'integer', description: 'Optional loopback port override (default: 9395)' }
+      }
+    }
+  },
+  {
+    name: 'likeness_mouth_roi',
+    description: 'Inspect or validate and update the normalized mouth ROI box (0 <= x,y,w,h <= 1; w >= 0.04; h >= 0.03; x+w <= 1; y+h <= 1).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['get', 'set'], default: 'get' },
+        x: { type: 'number', minimum: 0, maximum: 1 },
+        y: { type: 'number', minimum: 0, maximum: 1 },
+        w: { type: 'number', minimum: 0.04, maximum: 1 },
+        h: { type: 'number', minimum: 0.03, maximum: 1 },
+        port: { type: 'integer' }
+      }
+    }
+  },
+  {
+    name: 'likeness_speak',
+    description: 'Invoke POST /api/speak (JSON response) on the local Likeness Desk daemon. Returns honest lazy_preview or synthesized status.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', minLength: 2, maxLength: 360, description: 'Line for the video double to speak' },
+        port: { type: 'integer' }
+      },
+      required: ['text']
+    }
+  },
+  {
+    name: 'likeness_diagnostics',
+    description: 'Return Likeness Desk version, loopback health, lazy-GPU flag, redacted storage paths, and checkpoint availability.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        port: { type: 'integer' }
+      }
+    }
+  }
+];
+
+function localRequest(port, method, reqPath, payload) {
+  return new Promise((resolve) => {
+    const body = payload ? Buffer.from(JSON.stringify(payload), 'utf8') : null;
+    const headers = {
+      Accept: 'application/json',
+      'User-Agent': `likeness-desk-mcp/${VERSION}`
+    };
+    if (body) {
+      headers['Content-Type'] = 'application/json';
+      headers['Content-Length'] = body.length;
+    }
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port,
+      path: reqPath,
+      method,
+      headers,
+      timeout: 5000
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8');
+        let parsed;
+        try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
+        resolve({ ok: res.statusCode >= 200 && res.statusCode < 300, status: res.statusCode, data: parsed });
+      });
+    });
+    req.on('error', (err) => resolve({ ok: false, status: 0, error: err.message }));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ ok: false, status: 0, error: 'timeout' });
+    });
+    if (body) req.end(body);
+    else req.end();
+  });
+}
+
+async function callTool(name, args) {
+  const port = Number((args && args.port) || PORT);
+  if (name === 'likeness_status') {
+    const res = await localRequest(port, 'GET', '/api/status');
+    return {
+      online: res.ok,
+      endpoint: `http://127.0.0.1:${port}`,
+      status: res.ok ? res.data : { error: res.error || res.data }
+    };
+  }
+  if (name === 'likeness_mouth_roi') {
+    const action = (args && args.action) || 'get';
+    if (action === 'set') {
+      const x = Number(args.x);
+      const y = Number(args.y);
+      const w = Number(args.w);
+      const h = Number(args.h);
+      if (
+        ![x, y, w, h].every(Number.isFinite) ||
+        x < 0 || y < 0 || w < 0.04 || h < 0.03 || x + w > 1 || y + h > 1
+      ) {
+        return { ok: false, error: 'Invalid mouth ROI: require 0 <= x,y <= 1, w >= 0.04, h >= 0.03, x+w <= 1, y+h <= 1.' };
+      }
+      const res = await localRequest(port, 'POST', '/api/mouth', { mouth: { x, y, w, h } });
+      return { ok: res.ok, httpStatus: res.status, result: res.data || { error: res.error } };
+    }
+    const res = await localRequest(port, 'GET', '/api/status');
+    return {
+      ok: res.ok,
+      mouth: res.ok ? res.data.mouth : null,
+      error: res.ok ? null : (res.error || 'daemon offline')
+    };
+  }
+  if (name === 'likeness_speak') {
+    const text = String((args && args.text) || '').trim();
+    if (text.length < 2) {
+      return { ok: false, error: 'text must be at least 2 characters.' };
+    }
+    const res = await localRequest(port, 'POST', '/api/speak', { text });
+    return { ok: res.ok, httpStatus: res.status, result: res.data || { error: res.error } };
+  }
+  if (name === 'likeness_diagnostics') {
+    const health = await localRequest(port, 'GET', '/health');
+    return {
+      service: 'likeness-desk',
+      version: VERSION,
+      endpoint: `http://127.0.0.1:${port}`,
+      daemonOnline: health.ok,
+      health: health.ok ? health.data : { error: health.error || 'offline' },
+      lazyGpuEnv: process.env.LIKENESS_LAZY_GPU === '1',
+      xaiChatConfigured: Boolean(process.env.XAI_API_KEY),
+      dataDir: redactHome(DATA_DIR),
+      wav2lipCheckpointPresent: fs.existsSync(WAV2LIP),
+      toolsCount: TOOLS.length
+    };
+  }
+  throw Object.assign(new Error(`Unknown tool: ${name}`), { code: -32601 });
+}
+
+let framingMode = 'newline';
+
+function writeMessage(obj) {
+  const payload = JSON.stringify(obj);
+  if (framingMode === 'content-length') {
+    const byteLen = Buffer.byteLength(payload, 'utf8');
+    process.stdout.write(`Content-Length: ${byteLen}\r\n\r\n${payload}`);
+  } else {
+    process.stdout.write(`${payload}\n`);
+  }
+}
+
+async function handleMessage(msg) {
+  if (!msg || typeof msg !== 'object') return;
+  const { id, method, params } = msg;
+  if (method === 'notifications/initialized') return;
+
+  try {
+    if (method === 'initialize') {
+      writeMessage({
+        jsonrpc: '2.0',
+        id,
+        result: {
+          protocolVersion: PROTOCOL_VERSION,
+          capabilities: { tools: {} },
+          serverInfo: { name: 'likeness-desk', version: VERSION }
+        }
+      });
+      return;
+    }
+    if (method === 'ping') {
+      writeMessage({ jsonrpc: '2.0', id, result: {} });
+      return;
+    }
+    if (method === 'tools/list') {
+      writeMessage({ jsonrpc: '2.0', id, result: { tools: TOOLS } });
+      return;
+    }
+    if (method === 'tools/call') {
+      const name = params && params.name;
+      const toolArgs = (params && params.arguments) || {};
+      const result = await callTool(name, toolArgs);
+      writeMessage({
+        jsonrpc: '2.0',
+        id,
+        result: {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          isError: result && result.ok === false
+        }
+      });
+      return;
+    }
+    if (id !== undefined) {
+      writeMessage({
+        jsonrpc: '2.0',
+        id,
+        error: { code: -32601, message: `Method not found: ${method}` }
+      });
+    }
+  } catch (err) {
+    if (id !== undefined) {
+      writeMessage({
+        jsonrpc: '2.0',
+        id,
+        error: { code: err.code || -32603, message: err.message || 'Internal error' }
+      });
+    }
+  }
+}
+
+let buffer = Buffer.alloc(0);
+
+function pumpBuffer() {
+  while (buffer.length > 0) {
+    const str = buffer.toString('utf8');
+    if (str.startsWith('Content-Length:')) {
+      framingMode = 'content-length';
+      const headerEnd = buffer.indexOf('\r\n\r\n');
+      if (headerEnd === -1) return;
+      const headerText = buffer.slice(0, headerEnd).toString('utf8');
+      const match = /Content-Length:\s*(\d+)/i.exec(headerText);
+      if (!match) {
+        buffer = buffer.slice(headerEnd + 4);
+        continue;
+      }
+      const len = Number(match[1]);
+      const total = headerEnd + 4 + len;
+      if (buffer.length < total) return;
+      const bodyStr = buffer.slice(headerEnd + 4, total).toString('utf8');
+      buffer = buffer.slice(total);
+      try {
+        handleMessage(JSON.parse(bodyStr));
+      } catch { /* ignore malformed */ }
+    } else {
+      const nl = buffer.indexOf('\n');
+      if (nl === -1) return;
+      const line = buffer.slice(0, nl).toString('utf8').trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line) continue;
+      framingMode = 'newline';
+      try {
+        handleMessage(JSON.parse(line));
+      } catch { /* ignore malformed */ }
+    }
+  }
+}
+
+process.stdin.on('data', (chunk) => {
+  buffer = Buffer.concat([buffer, chunk]);
+  pumpBuffer();
+});
+process.stdin.on('end', () => {
+  setTimeout(() => process.exit(0), 100);
+});

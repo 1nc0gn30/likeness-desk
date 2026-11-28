@@ -4,17 +4,26 @@
 import io
 import json
 import os
+import signal
 import threading
 import traceback
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from socketserver import ThreadingMixIn
 from pathlib import Path
+from socketserver import ThreadingMixIn
 
 import numpy as np
 import soundfile as sf
 
 PORT = int(os.environ.get("LIKENESS_VOICE_PORT", "9396"))
 VOICE_WAV = Path(os.environ.get("LIKENESS_VOICE_WAV", ""))
+ALLOWED_HOSTS = {
+    "127.0.0.1",
+    f"127.0.0.1:{PORT}",
+    "localhost",
+    f"localhost:{PORT}",
+    "[::1]",
+    f"[::1]:{PORT}",
+}
 
 model = None
 voice_ready = False
@@ -55,15 +64,24 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         return
 
+    def _valid_host(self):
+        host = (self.headers.get("Host") or "").strip().lower()
+        return (not host) or (host in ALLOWED_HOSTS)
+
     def _json(self, code, obj):
         body = json.dumps(obj).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
     def do_GET(self):
+        if not self._valid_host():
+            self._json(403, {"error": "forbidden_host"})
+            return
         path = self.path.split("?", 1)[0]
         if path != "/health":
             self._json(404, {"error": "not_found"})
@@ -75,8 +93,16 @@ class Handler(BaseHTTPRequestHandler):
         })
 
     def do_POST(self):
+        if not self._valid_host():
+            self._json(403, {"error": "forbidden_host"})
+            return
         path = self.path.split("?", 1)[0]
-        length = int(self.headers.get("Content-Length", "0") or 0)
+        raw_len = self.headers.get("Content-Length", "0")
+        try:
+            length = int(raw_len or "0")
+        except ValueError:
+            self._json(400, {"error": "invalid_content_length"})
+            return
         if length < 0 or length > 8000:
             self._json(413, {"error": "too_large"})
             return
@@ -101,6 +127,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "audio/wav")
                 self.send_header("Content-Length", str(len(wav)))
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 self.wfile.write(wav)
                 return
@@ -111,7 +139,13 @@ class Handler(BaseHTTPRequestHandler):
             self._json(500, {"error": str(err)[:180]})
 
 
-if __name__ == "__main__":
+class Server(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+
+def main():
+    global ready_error
     try:
         load_model()
     except Exception as err:
@@ -122,9 +156,20 @@ if __name__ == "__main__":
             train_from_disk()
         except Exception as err:
             print(f"VOICE_TRAIN_FAIL {type(err).__name__}: {err}", flush=True)
-    class Server(ThreadingMixIn, HTTPServer):
-        daemon_threads = True
 
     server = Server(("127.0.0.1", PORT), Handler)
+
+    def _shutdown(signum, _frame):
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
     print(f"VOICE_READY port={PORT}", flush=True)
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
+
+
+if __name__ == "__main__":
+    main()

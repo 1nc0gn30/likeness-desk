@@ -1,0 +1,26 @@
+# Likeness Desk (AI Video Double)
+
+> Local-first AI video double and real-time voice/lip-sync workstation (`v2.6.0`) engineered by Neal Frazier Tech (@1nc0gn30 • NullAI Platform).
+
+Canonical Studio URL: https://zoth.nullai.tech/tools/likeness-desk
+Standalone Local URL: http://127.0.0.1:9395
+Repository: https://github.com/1nc0gn30/likeness-desk
+License: MIT (100% Free & Open Access, zero paywalls)
+
+## Architecture
+- `server.js` (`127.0.0.1:9395`): Hardened loopback HTTP coordinator with strict `Host` allowlist, exact-port `Origin` CORS (`:9395` and Studio `:3000`), full security headers, mouth ROI bounds checks (`x+w <= 1`, `y+h <= 1`), WebM EBML magic verification, and graceful worker cleanup.
+- `engine/voice_worker.py` (`127.0.0.1:9396`): Local Chatterbox Turbo 24kHz CPU voice cloning worker.
+- `engine/face_worker.py` (`127.0.0.1:9397`): Local Wav2Lip CUDA GPU mouth-region renderer with checkpoint SHA-256 verification.
+- `bin/likeness-desk`: Portable CLI (`--help`, `--version`, `--status`, `--json`, `--ui`, `serve`, `status`, `health`, `speak`, `mcp`).
+- `bin/likeness-desk-tui`: Real-status Unicode Braille TUI querying `127.0.0.1:9395`.
+- `bin/likeness-desk-mcp`: Zero-dependency JSON-RPC 2.0 stdio MCP server exposing 4 tools (`likeness_status`, `likeness_mouth_roi`, `likeness_speak`, `likeness_diagnostics`).
+
+## Privacy & Optional Egress
+- Voice samples, portraits, motion clips, and `profile.json` live strictly in gitignored `./data/` (configurable via `LIKENESS_DATA_DIR`).
+- Voice cloning and Wav2Lip rendering run 100% locally.
+- Optional conversational chat (`/api/chat`) contacts `api.x.ai` ONLY when `XAI_API_KEY` is explicitly configured in the host environment.
+- Optional browser speech-to-text (`Listen`) uses the browser's `SpeechRecognition` API if invoked by the user.
+
+## Support (Optional)
+- Stripe Buy Us a Coffee: https://buy.stripe.com/3cIfZg27PdKo2D64Ocfw40X
+- Solana Tip Address: `GG2eQbVh8ut1BK6j1A2tz7pSySdLpD38BgyEhGcxdXoK`

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Lip sync on the local NVIDIA GPU. The photo and the audio stay on this machine."""
 
+import hashlib
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -29,10 +31,52 @@ FPS = 25
 BATCH = 8
 IMG = 96
 
+ALLOWED_HOSTS = {
+    "127.0.0.1",
+    f"127.0.0.1:{PORT}",
+    "localhost",
+    f"localhost:{PORT}",
+    "[::1]",
+    f"[::1]:{PORT}",
+}
+
 model = None
 gpu_name = ""
 ready_error = ""
+checkpoint_sha256 = ""
 work_lock = threading.Lock()
+
+
+def compute_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def verify_checkpoint_integrity(path: Path) -> str:
+    digest = compute_sha256(path)
+    expected = (os.environ.get("LIKENESS_WAV2LIP_SHA256") or "").strip().lower()
+    sidecar = path.with_suffix(path.suffix + ".sha256")
+    if not expected and sidecar.is_file():
+        expected = sidecar.read_text("utf-8").strip().split()[0].lower()
+    if expected and digest != expected:
+        raise RuntimeError(f"wav2lip_sha256_mismatch expected={expected[:12]} got={digest[:12]}")
+    return digest
+
+
+def load_checkpoint_safely(path: Path):
+    global checkpoint_sha256
+    checkpoint_sha256 = verify_checkpoint_integrity(path)
+    try:
+        return torch.load(str(path), map_location="cpu", weights_only=True)
+    except Exception as exc:
+        print(
+            f"FACE_CHECKPOINT_FALLBACK sha256={checkpoint_sha256[:16]} reason={type(exc).__name__}",
+            flush=True,
+        )
+        return torch.load(str(path), map_location="cpu", weights_only=False)
 
 
 def load_model():
@@ -48,7 +92,7 @@ def load_model():
     torch.backends.cudnn.benchmark = True
     from models import Wav2Lip
     net = Wav2Lip()
-    blob = torch.load(str(CHECKPOINT), map_location="cpu", weights_only=False)
+    blob = load_checkpoint_safely(CHECKPOINT)
     state = blob["state_dict"] if isinstance(blob, dict) and "state_dict" in blob else blob
     net.load_state_dict({key.replace("module.", ""): value for key, value in state.items()})
     model = net.to("cuda").eval()
@@ -134,7 +178,7 @@ def load_motion_frames(path):
             "ffprobe", "-v", "error", "-select_streams", "v:0",
             "-show_entries", "stream=width,height", "-of", "csv=p=0", str(path)
         ],
-        capture_output=True, text=True, check=True
+        capture_output=True, text=True, check=True, timeout=30
     )
     width, height = [int(part) for part in probe.stdout.strip().split(",")]
     width -= width % 2
@@ -147,7 +191,7 @@ def load_motion_frames(path):
             "-vf", f"hflip,fps={FPS},scale={width}:{height}",
             "-f", "rawvideo", "-pix_fmt", "bgr24", "-"
         ],
-        capture_output=True, check=True
+        capture_output=True, check=True, timeout=60
     )
     frame_bytes = width * height * 3
     count = min(len(decoded.stdout) // frame_bytes, 400)
@@ -217,7 +261,7 @@ def render_mp4(wav_bytes):
     if MOTION.is_file() and MOTION.stat().st_size > 1000:
         try:
             plates = load_motion_frames(MOTION)
-        except (subprocess.CalledProcessError, ValueError):
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
             plates = []
         if plates:
             source = "motion"
@@ -302,15 +346,24 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         return
 
+    def _valid_host(self):
+        host = (self.headers.get("Host") or "").strip().lower()
+        return (not host) or (host in ALLOWED_HOSTS)
+
     def _json(self, code, obj):
         body = json.dumps(obj).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
     def do_GET(self):
+        if not self._valid_host():
+            self._json(403, {"error": "forbidden_host"})
+            return
         if self.path.split("?", 1)[0] != "/health":
             self._json(404, {"error": "not_found"})
             return
@@ -321,20 +374,29 @@ class Handler(BaseHTTPRequestHandler):
             "model": model is not None,
             "gpu": gpu_name,
             "freeMiB": int(free),
+            "checkpointSha256": checkpoint_sha256[:16] if checkpoint_sha256 else "",
             "error": ready_error
         })
 
     def do_POST(self):
+        if not self._valid_host():
+            self._json(403, {"error": "forbidden_host"})
+            return
         if self.path.split("?", 1)[0] != "/render":
             self._json(404, {"error": "not_found"})
             return
-        length = int(self.headers.get("Content-Length", "0") or 0)
+        raw_len = self.headers.get("Content-Length", "0")
+        try:
+            length = int(raw_len or "0")
+        except ValueError:
+            self._json(400, {"error": "invalid_content_length"})
+            return
         if length < 100 or length > 8 * 1024 * 1024:
             self._json(400, {"error": "Send a short wav."})
             return
         raw = self.rfile.read(length)
         if not work_lock.acquire(blocking=False):
-            self._json(409, {"error": "The Quadro is still drawing the last line."})
+            self._json(409, {"error": "The GPU worker is still drawing the last line."})
             return
         try:
             mp4 = render_mp4(raw)
@@ -347,12 +409,15 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "video/mp4")
         self.send_header("Content-Length", str(len(mp4)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(mp4)
 
 
 class Server(ThreadingMixIn, HTTPServer):
     daemon_threads = True
+    allow_reuse_address = True
 
 
 def main():
@@ -366,8 +431,17 @@ def main():
         print("FACE_LOAD_FAIL", ready_error, flush=True)
         traceback.print_exc()
     httpd = Server(("127.0.0.1", PORT), Handler)
+
+    def _shutdown(signum, _frame):
+        threading.Thread(target=httpd.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
     print(f"FACE_READY port={PORT}", flush=True)
-    httpd.serve_forever()
+    try:
+        httpd.serve_forever()
+    finally:
+        httpd.server_close()
 
 
 if __name__ == "__main__":

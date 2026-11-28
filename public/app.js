@@ -15,12 +15,76 @@ const openCam = document.getElementById('openCam');
 const takePhoto = document.getElementById('takePhoto');
 const recordIdle = document.getElementById('recordIdle');
 const faceMeta = document.getElementById('faceMeta');
+const roiMeta = document.getElementById('roiMeta');
 const cam = document.getElementById('cam');
 const faceVideo = document.getElementById('faceVideo');
+const themeToggle = document.getElementById('themeToggle');
+const copySolanaBtn = document.getElementById('copySolanaBtn');
 const ctx = stageCanvas.getContext('2d');
 
+/* Theme & Embed Mode Synchronization */
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('embed') === '1') {
+  document.documentElement.setAttribute('data-embed', '1');
+}
+
+function applyTheme(nextTheme, persist) {
+  const mode = nextTheme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', mode);
+  if (themeToggle) {
+    themeToggle.textContent = mode === 'light' ? 'Dark Mode' : 'Light Mode';
+    themeToggle.setAttribute('aria-pressed', mode === 'light' ? 'true' : 'false');
+  }
+  if (persist) {
+    try { localStorage.setItem('likeness-desk-theme', mode); } catch { /* ignore */ }
+  }
+}
+
+(function initTheme() {
+  const queryTheme = urlParams.get('theme');
+  if (queryTheme === 'light' || queryTheme === 'dark') {
+    applyTheme(queryTheme, false);
+    return;
+  }
+  let stored = null;
+  try { stored = localStorage.getItem('likeness-desk-theme'); } catch { /* ignore */ }
+  if (stored === 'light' || stored === 'dark') {
+    applyTheme(stored, false);
+    return;
+  }
+  const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  applyTheme(prefersLight ? 'light' : 'dark', false);
+})();
+
+if (themeToggle) {
+  themeToggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    applyTheme(current === 'light' ? 'dark' : 'light', true);
+  });
+}
+
+window.addEventListener('message', (event) => {
+  if (!event.data || typeof event.data !== 'object') return;
+  const candidate = event.data.theme || (event.data.type === 'zoth-theme' ? event.data.mode : null);
+  if (candidate === 'light' || candidate === 'dark') {
+    applyTheme(candidate, false);
+  }
+});
+
+if (copySolanaBtn) {
+  copySolanaBtn.addEventListener('click', () => {
+    const addr = copySolanaBtn.dataset.address || '';
+    if (navigator.clipboard && navigator.clipboard.writeText && addr) {
+      navigator.clipboard.writeText(addr).catch(() => {});
+    }
+    const orig = copySolanaBtn.textContent;
+    copySolanaBtn.textContent = '✓ Copied Solana Tip Address';
+    setTimeout(() => { copySolanaBtn.textContent = orig; }, 2200);
+  });
+}
+
 const history = [];
-let desk = { voiceModel: false, voiceTrained: false, face: false, idle: false, mouth: null, chat: false };
+let desk = { voiceModel: false, voiceTrained: false, face: false, idle: false, motion: false, mouth: null, chat: false };
 let voiceBlob = null;
 let portrait = null;
 let speaking = false;
@@ -45,6 +109,16 @@ let renderClock = null;
 function setStatus(text, isError) {
   statusLine.textContent = text;
   statusLine.classList.toggle('error', Boolean(isError));
+}
+
+function updateStageHint() {
+  const hasVisibleMedia = Boolean(
+    portrait ||
+    !idleVideo.hidden ||
+    !cam.hidden ||
+    !faceVideo.hidden
+  );
+  stageHint.hidden = hasVisibleMedia;
 }
 
 function addLine(who, text) {
@@ -82,18 +156,17 @@ async function refresh() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     desk = await res.json();
   } catch (e) {
-    // Desk API offline: report it and keep the page alive instead of
-    // raising an uncaught rejection on load or on the 4s poll.
     console.warn('likeness-desk API offline:', e.message);
     if (!speaking && !holdStatus) setStatus('Desk service offline — start the likeness-desk daemon to enable voice.', true);
+    updateStageHint();
     return;
   }
   await checkPreview();
   if (!speaking && !holdStatus) {
     if (desk.voiceError) setStatus(desk.voiceError, true);
-    else if (!desk.voiceModel) setStatus('The voice model is loading. The first start downloads it once.');
+    else if (!desk.voiceModel) setStatus('The voice model is loading or idle (lazy GPU mode).');
     else if (!desk.voiceTrained) setStatus('Voice model is ready. Record a take, then press Stop to hear it.');
-    else setStatus(desk.chat ? 'Voice copy is ready, and the chat key is set.' : 'Voice copy is ready. Type a line and press Talk, or press Listen.');
+    else setStatus(desk.chat ? 'Voice copy is ready, and optional xAI chat is enabled.' : 'Voice copy is ready. Type a line and press Talk.');
   }
   if (stopRecording) {
     learnVoice.disabled = true;
@@ -113,6 +186,9 @@ async function refresh() {
           ? (desk.faceGpu ? 'Photo saved. Record yourself moving so the body travels with the line.' : 'Photo and mouth box are saved.')
           : 'Photo saved. Drag a box around the mouth.')
         : 'No photo yet.');
+    if (desk.mouth && roiMeta) {
+      roiMeta.textContent = `Mouth ROI: x=${desk.mouth.x.toFixed(2)}, y=${desk.mouth.y.toFixed(2)}, w=${desk.mouth.w.toFixed(2)}, h=${desk.mouth.h.toFixed(2)} (drag on portrait to recalibrate).`;
+    }
   }
   answerBtn.disabled = !desk.chat;
   if (desk.face && !portrait) await loadPortrait();
@@ -122,6 +198,7 @@ async function refresh() {
     idleVideo.src = plate === 'motion' ? `/api/motion?t=${Date.now()}` : `/api/idle?t=${Date.now()}`;
   }
   showIdle(true);
+  updateStageHint();
 }
 
 function fitRect() {
@@ -139,11 +216,15 @@ function showIdle(on) {
   const useIdle = Boolean(on && (desk.motion || desk.idle) && desk.mouth && !speaking && !drag && !holdPhoto && !camStream);
   idleVideo.hidden = !useIdle;
   if (!camStream && faceVideo.hidden) stageCanvas.style.visibility = useIdle ? 'hidden' : 'visible';
+  updateStageHint();
 }
 
 function draw() {
   requestAnimationFrame(draw);
-  if (stageCanvas.style.visibility === 'hidden') return;
+  if (stageCanvas.style.visibility === 'hidden') {
+    updateStageHint();
+    return;
+  }
   const frame = stageCanvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   const width = Math.max(1, Math.round(frame.width * dpr));
@@ -154,7 +235,10 @@ function draw() {
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, frame.width, frame.height);
-  if (!portrait) return;
+  if (!portrait) {
+    updateStageHint();
+    return;
+  }
   stageHint.hidden = true;
   const box = fitRect();
   const sway = Math.sin(performance.now() / 900) * 4;
@@ -196,7 +280,8 @@ async function loadPortrait() {
   await img.decode();
   if (portrait && portrait.src.startsWith('blob:')) URL.revokeObjectURL(portrait.src);
   portrait = img;
-  idleVideo.hidden = speaking || !desk.idle;
+  updateStageHint();
+  showIdle(true);
 }
 
 function armAudio() {
@@ -250,6 +335,7 @@ function stopFaceVideo() {
     URL.revokeObjectURL(faceUrl);
     faceUrl = null;
   }
+  updateStageHint();
 }
 
 function stopPlayback() {
@@ -268,10 +354,10 @@ function startGpuClock() {
   stopRenderClock();
   const started = Date.now();
   statusLine.classList.remove('error');
-  statusLine.textContent = 'Drawing you on the Quadro. 0s.';
+  statusLine.textContent = 'Drawing mouth frames on GPU. 0s.';
   renderClock = setInterval(() => {
     const seconds = Math.round((Date.now() - started) / 1000);
-    statusLine.textContent = `Drawing you on the Quadro. ${seconds}s.`;
+    statusLine.textContent = `Drawing mouth frames on GPU. ${seconds}s.`;
   }, 500);
 }
 
@@ -407,6 +493,7 @@ function showFaceClip(blob, withSound) {
   faceVideo.volume = 1;
   idleVideo.hidden = true;
   stageCanvas.style.visibility = 'hidden';
+  updateStageHint();
   holdStatus = true;
   setStatus('Speaking.');
   return faceVideo.play();
@@ -480,7 +567,7 @@ hearBtn.addEventListener('click', async () => {
   if (!res.ok || gen !== speakGen) {
     hearBtn.disabled = false;
     holdStatus = true;
-    setStatus('The paragraph is not ready yet.', true);
+    setStatus('The preview clip is not ready yet.', true);
     return;
   }
   const raw = await res.arrayBuffer();
@@ -563,7 +650,7 @@ micBtn.addEventListener('click', () => {
   };
   rec.start();
   holdStatus = true;
-  setStatus('Listening. The copy will say it back. Chrome speech leaves this machine.');
+  setStatus('Listening. Note: browser SpeechRecognition may send audio to the browser vendor.');
 });
 
 async function playTake(blob, canLearn) {
@@ -658,7 +745,7 @@ async function ensureCam() {
   cam.hidden = false;
   stageCanvas.style.display = 'none';
   idleVideo.hidden = true;
-  stageHint.hidden = true;
+  updateStageHint();
   await cam.play();
   return camStream;
 }
@@ -784,6 +871,9 @@ stageCanvas.addEventListener('pointerup', async () => {
   }
   desk.mouth = data.mouth;
   faceMeta.textContent = 'Mouth box saved.';
+  if (roiMeta && data.mouth) {
+    roiMeta.textContent = `Mouth ROI: x=${data.mouth.x.toFixed(2)}, y=${data.mouth.y.toFixed(2)}, w=${data.mouth.w.toFixed(2)}, h=${data.mouth.h.toFixed(2)}.`;
+  }
 });
 
 idleVideo.addEventListener('click', () => {

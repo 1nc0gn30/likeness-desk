@@ -1,0 +1,39 @@
+{
+  "name": "likeness-desk",
+  "version": "2.6.0",
+  "description": "Local AI video double and voice/lip-sync workstation (Node.js :9395 coordinator + Chatterbox Turbo CPU :9396 + Wav2Lip CUDA :9397).",
+  "license": "MIT",
+  "author": "Neal Frazier Tech (@1nc0gn30) <contact@nullai.tech>",
+  "homepage": "https://zoth.nullai.tech/tools/likeness-desk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1nc0gn30/likeness-desk.git"
+  },
+  "main": "server.js",
+  "bin": {
+    "likeness-desk": "./bin/likeness-desk",
+    "likeness-desk-tui": "./bin/likeness-desk-tui",
+    "likeness-desk-mcp": "./bin/likeness-desk-mcp"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "start:lazy": "LIKENESS_LAZY_GPU=1 node server.js",
+    "mcp": "node bin/likeness-desk-mcp",
+    "test": "LIKENESS_LAZY_GPU=1 python3 -m pytest -v"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "likeness-desk",
+    "ai-video-double",
+    "voice-cloning",
+    "chatterbox-turbo",
+    "wav2lip",
+    "lip-sync",
+    "local-ai",
+    "mcp",
+    "zoth-studio",
+    "zothos"
+  ]
+}

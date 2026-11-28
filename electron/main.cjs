@@ -4,26 +4,27 @@ const fs = require('fs');
 const http = require('http');
 const { spawn } = require('child_process');
 
-// Linux & VM GPU Safeguards
-app.commandLine.appendSwitch('no-sandbox');
+// Keep Chromium sandbox enabled by default; opt-out only if explicitly requested for restricted containers.
+if (process.env.LIKENESS_ELECTRON_NO_SANDBOX === '1') {
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
+}
 app.commandLine.appendSwitch('disable-dev-shm-usage');
-app.commandLine.appendSwitch('disable-gpu-sandbox');
-app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform');
-app.commandLine.appendSwitch('ozone-platform', 'x11');
 
 const IS_SMOKE = process.argv.includes('--smoke-test');
-const TOOL_ID = "likeness-desk";
-const TOOL_NAME = "Likeness Desk (AI Video Double)";
-const BACKEND_PORT = Number(process.env.PORT || 9395);
+const TOOL_ID = 'likeness-desk';
+const TOOL_NAME = 'Likeness Desk (AI Video Double)';
+const BACKEND_PORT = Number(process.env.LIKENESS_PORT || process.env.PORT || 9395);
 const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
 
 let mainWindow = null;
 let backendProcess = null;
+let startedByElectron = false;
 const consoleErrors = [];
 
 function isBackendRunning() {
   return new Promise((resolve) => {
-    const req = http.get(BACKEND_URL, (res) => {
+    const req = http.get(`${BACKEND_URL}/health`, (res) => {
       res.resume();
       resolve(res.statusCode >= 200 && res.statusCode < 500);
     });
@@ -37,35 +38,38 @@ function isBackendRunning() {
 
 function startBackend() {
   const rootDir = path.resolve(__dirname, '..');
-  const env = { ...process.env, PORT: String(BACKEND_PORT), PYTHONUNBUFFERED: '1' };
-  let cmd = 'python3';
-  let args = ['server.py', '--port', String(BACKEND_PORT)];
+  const env = {
+    ...process.env,
+    PORT: String(BACKEND_PORT),
+    LIKENESS_PORT: String(BACKEND_PORT),
+    LIKENESS_LAZY_GPU: process.env.LIKENESS_LAZY_GPU !== undefined ? process.env.LIKENESS_LAZY_GPU : '1',
+    PYTHONUNBUFFERED: '1',
+  };
+  const serverPath = path.join(rootDir, 'server.js');
+  if (!fs.existsSync(serverPath)) return;
 
-  if (fs.existsSync(path.join(rootDir, 'server.js'))) {
-    cmd = 'node';
-    args = ['server.js', '--port', String(BACKEND_PORT)];
-  } else if (fs.existsSync(path.join(rootDir, 'server.py'))) {
-    cmd = 'python3';
-    args = ['server.py', '--port', String(BACKEND_PORT)];
-  } else if (fs.existsSync(path.join(rootDir, 'zoth_relay', 'server.py'))) {
-    cmd = 'python3';
-    args = ['-m', 'zoth_relay.server', '--port', String(BACKEND_PORT)];
-  } else if (fs.existsSync(path.join(rootDir, 'src'))) {
-    const srcDir = path.join(rootDir, 'src');
-    const pkgs = fs.readdirSync(srcDir).filter((d) => fs.existsSync(path.join(srcDir, d, 'cli.py')));
-    if (pkgs.length > 0) {
-      env.PYTHONPATH = env.PYTHONPATH ? `${srcDir}:${env.PYTHONPATH}` : srcDir;
-      args = ['-m', `${pkgs[0]}.cli`, 'serve', '--port', String(BACKEND_PORT)];
-    }
-  }
-
-  backendProcess = spawn(cmd, args, {
+  backendProcess = spawn('node', [serverPath, '--port', String(BACKEND_PORT)], {
     cwd: rootDir,
     stdio: 'ignore',
-    detached: true,
+    detached: false,
     env,
   });
-  backendProcess.unref();
+  startedByElectron = true;
+  backendProcess.on('exit', () => {
+    backendProcess = null;
+    startedByElectron = false;
+  });
+}
+
+function stopBackend() {
+  if (!startedByElectron || !backendProcess) return;
+  try {
+    backendProcess.kill('SIGTERM');
+  } catch {
+    /* ignore */
+  }
+  backendProcess = null;
+  startedByElectron = false;
 }
 
 async function waitForBackend(maxAttempts = 35, interval = 200) {
@@ -83,11 +87,12 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     show: !IS_SMOKE,
-    backgroundColor: '#08080B',
-    title: `${TOOL_NAME} // ZothOS Sovereign Workstation (:${BACKEND_PORT})`,
+    backgroundColor: '#14120F',
+    title: `${TOOL_NAME} // Local Workstation (:${BACKEND_PORT})`,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: process.env.LIKENESS_ELECTRON_NO_SANDBOX !== '1',
     },
     autoHideMenuBar: true,
   });
@@ -101,7 +106,8 @@ function createWindow() {
   if (IS_SMOKE) {
     const timer = setTimeout(() => {
       console.log(JSON.stringify({ tool: TOOL_ID, port: BACKEND_PORT, ok: false, error: 'timeout' }));
-      app.exit(1); process.exit(1);
+      stopBackend();
+      app.exit(1);
     }, 10000);
 
     mainWindow.webContents.once('dom-ready', async () => {
@@ -121,12 +127,14 @@ function createWindow() {
           url: BACKEND_URL,
           ok,
           ...metrics,
-          consoleErrors: consoleErrors.slice(0, 5)
+          consoleErrors: consoleErrors.slice(0, 5),
         }));
-        app.exit(ok ? 0 : 1); process.exit(ok ? 0 : 1);
+        stopBackend();
+        app.exit(ok ? 0 : 1);
       } catch (err) {
         console.log(JSON.stringify({ tool: TOOL_ID, port: BACKEND_PORT, ok: false, error: String(err) }));
-        app.exit(1); process.exit(1);
+        stopBackend();
+        app.exit(1);
       }
     });
   }
@@ -153,7 +161,12 @@ app.whenReady().then(async () => {
   createWindow();
 });
 
+app.on('before-quit', () => {
+  stopBackend();
+});
+
 app.on('window-all-closed', () => {
+  stopBackend();
   if (process.platform !== 'darwin') {
     app.quit();
   }
